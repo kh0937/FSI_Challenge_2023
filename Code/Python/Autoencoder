@@ -1,0 +1,39 @@
+import numpy as np
+from sklearn.datasets import load_iris
+from sklearn.preprocessing import StandardScaler
+from sklearn.model_selection import train_test_split
+from tensorflow.keras.models import Model
+from tensorflow.keras.layers import Input, Dense
+from tensorflow.keras.optimizers import Adam
+
+# Load dataset
+data = load_iris()
+X = data.data
+
+# Standardize data
+scaler = StandardScaler()
+X_scaled = scaler.fit_transform(X)
+
+# Split data into training and test sets
+X_train, X_test = train_test_split(X_scaled, test_size=0.2, random_state=42)
+
+# Define autoencoder architecture
+input_layer = Input(shape=(4,))
+encoder = Dense(3, activation='relu')(input_layer)  # Encoding to 3 dimensions
+decoder = Dense(4, activation='sigmoid')(encoder)   # Decoding back to 4 dimensions
+
+autoencoder = Model(inputs=input_layer, outputs=decoder)
+
+# Compile model
+autoencoder.compile(optimizer=Adam(learning_rate=0.001), loss='mean_squared_error')
+
+# Train autoencoder
+autoencoder.fit(X_train, X_train, epochs=100, batch_size=16, validation_data=(X_test, X_test))
+
+# Extract the encoder model to get the compressed representation
+encoder_model = Model(inputs=input_layer, outputs=encoder)
+
+# Get compressed data for the test set
+encoded_data = encoder_model.predict(X_test)
+
+print(encoded_data)  # This will print the 3-dimensional representation of the test data
