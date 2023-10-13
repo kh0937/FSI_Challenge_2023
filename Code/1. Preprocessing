@@ -1,0 +1,152 @@
+##### Load Package #####
+
+  import numpy as np
+  import pandas as pd
+  from sklearn.ensemble import RandomForestRegressor
+  from sklearn.ensemble import RandomForestclassifier
+  from sklearn.tree import DecisionTreeRegressor
+  from sklearn.metrics import mean_squared_error
+  import matplot lib.pyplot as plt
+  import time
+  import copy
+  import seaborn as sns
+  from sklearn.preprocessing import OneHotEncoder
+
+
+
+##### Data Load #####
+
+  df = pd.read_csv('ntest_vf2.csv')
+  df.head()
+
+
+
+##### 결측치 처리 #####
+결측치 처리 임계값은 5% 로 설정
+- 사용하고자 할 MICE 패키지는 결측치 패턴이 Random함을 가정하나, 결측치 임계값을 15% 로 설정했을 경우, SKT_6_AVG부터 SKT_13_AVG 변수에서 동일한 인덱스에서 결측값이 발견되었음 따라서 결측치 임계값의 후보로 5% 와 10% 설정
+- 분석에 사용할 기법 중 VSURF,Autoencoder, Transformed to Image 기법은 금융 데이터에서 사용되지 않은 기법이므로 데이터 전처리(결측값 처리) 방법 에 따른 모델의 편차를 줄이고자 결측치 임계값을 전체 데이터의 5% 로 설정하여 
+  결측치의 개수가 5% 가 넘을 경우 분석에서 제외하였음
+
+# 칼럼별 결측치의 개수를 저장한 missing_count 변수 생성
+
+  missing_count =df.isnull().sum()
+  print(missing_count)
+
+# 결측치의 개수가 5% 미만인 칼럼들만 deep copy 형식으로 selected_df 로 저장
+
+  selected_df = copy.deepcopy(df[missing_count[missing_count <= int(df.shape[0] * 0.05)].index])
+
+
+
+##### 이상치 변수 처리 #####
+- CNT(집계 인구수) 보다 큰 행을 가지는 변수들을 추촐한 결과(인구수의 합 관련 변수들에 한해서) 총 6 개의 변수가 추촐되었음을 확인하였음
+- 각각 메타 데이터를 활용한 결과 신한 라이프 스테이지, 취미, 게임이용등급, 월 평균 이용금액에 해당하는 변수임을 확인
+- 해당 변수들의 경우 중복 고객의 존재 가능성이 있음을 가정하고, 분석에 활용하기로 하였음
+
+  col_list =[]
+  
+  for i in range (5,80) :
+      if sum(selected_df ['CNT'] > selected_df.iloc[:,i]) < selected_df.shape[0] :
+          col_list.append(i)
+          print (selected_df.shape[0]- sum(df['CNT'] > selected_df.iloc[:, i]))
+          
+  print("\n CNT보다 큰 값을 지닌 칼럼들:", col_list)
+
+  selected_df.iloc[:, col_list]
+
+
+
+##### 식별 코드에 대한 처리 #####
+- 식별 코드 기준 시점, 시군구, 성별, 연령대에 대한 전처리 작업을 진행한다.
+- 나머지 변수들의 경우 전부 수치형 변수에 해당하므로 별도의 전처리 작업을 진행하지 않고 결측치 대체만을 진행한다.
+- 분기형 변수의 경우 시간적인 특성이 있으므로 순서형 변수로 변환하여 시간의 흐름을 반영하도록 바꿔준다.
+- 거주지 관련 변수의 경우 One-Hot encoding 방법을 사용한 범주형 변수를 생성하여 진행한다.
+
+# 분기형 변수 mapping
+
+  mapping = {'20201Q' : 1, '20202Q': 2, '20203Q': 3, '20204Q': 4, '20211Q': 5, '20212Q':6, '20213Q': 7, '20214Q': 8, '20221Q':  9}
+  
+  selected_df['BS_YR_Q'] = selected_df['BS_YR_Q'].map(mapping)
+
+
+\# home sigun 변수에 대한 One-Hot encoding
+
+  encoder = OneHotEncoder()
+  
+  encoded_categories = encoder.fit_transform(selected_df[['home_sigun']])
+  encoded_df = pd.DataFrame(encoded_categories.toarray(), columns = encoder.get_feature_names_out (['home_sigun']))
+  
+  selected_df = selected_df.drop(columns =n['home_sigun'])
+  
+  selected_df = pd.concat([selected_df, encoded_df], axis = 1)
+
+
+
+##### MICE를 활용한 결측값 대체 #####
+- MICE(Multiple Imputation by chained Equations) 알고리즘은 결측값을 대체 하기 위한 다중 대치 방벙 중 하나이다. 이 알고리즘은 결측값을 여러 번 반복 적으로 대치하면서 데이터의 분포와 패턴을 보존하려고 시도한다. 
+  각 변수의 결측값을 예측하기 위해 다른 변수들을 사용하며, 이런 예측을 반복하여 결측 값을 대체한다. MICE 알고리즘은 변수 간의 상관 관계와 패턴을 잘 반영하면서 데이터의 불확실성을 고려한 대치 방법이다.
+
+##### 평균대체를 활용한 결측값 대체 #####
+- 평균 대체는 결측값을 해당 변수의 평균값으로 대체하는 간단한 대치 방법이다. 결측값을 갖는 데이터 포인트에 대해 해당 변수의 모든 유효한 값들의 평 균을 계산하고, 그 평균값으로 결측값을 대체한다. 
+  평균 대칭의 장점은 구현아 간단하고 빠르며, 데이터셋의 크기가 크지 않을 때 효과적일 수 있다. 그러나 평균 대체의 단점은 결측값을 단순히 평균값으로 대체하기 때문에 데이터의 변동성을 과소평사 할 수 있으며, 
+  결측값이 많은 경우 평균값이 왜곡될 수 있 다는 점이다. 또한 변수 간의 관계나 패턴을 고려하지 않고 각 변수를 독립적으로 처리한다는 단점도 존재한다.
+  
+ 우선은 결측치 대체 방법을 MICE 방법을 사용하되, 성능 비교의 관점에서 평균 대체를 제 2안으로 고려하여 분석에 사용하도록 한다.
+ 
+# load package
+
+  from sklearn.experimental import enable_iterative_imputer
+  from sklearn.impute import Iterativelmputer
+  from sklearn.impute import Simplelmputer
+  from sklearn. linear_model import Lasso
+  from sklearn. linear_model import LinearRegression
+  
+  selected_df.info()
+
+
+
+##### Mice 대체 #####
+
+# mice 알고리즘을 사용한 결측값 대체
+
+  clf = LinearRegression()
+  
+  mice_imputer = Iterativelmputer(estimator = clf, max_iter = 10, random_state = 10)
+  mice_data = mice_imputer.fit_transform(selected_df)
+  
+  mice_df = pd.Dataframe(mice_data, columns = selected_df.columns)
+  
+  mice_df.head()
+
+  mice_df.to_csv('mice_impute_df.csv', index = False, header = True)
+
+
+# save our lmputer and load and apply test set
+
+  import joblib
+  
+  joblib.dump(mice_imputer, 'mice_model_fit.joblib')
+ 
+
+  
+##### 평균 대체 #####
+  
+# 평균 대체를 사용한 결측값 대체
+
+  mean_imputer = Simplelmputer()
+  mean_data = mean_imputer.fit_transform(selected_df)
+  
+  mean_df = pd.DataFrame(mean_data, columns = selected_df.columns)
+  
+  mean_df.head()
+
+  mean_df.to_csv('mean_impute_df.csv', index = False, header = True)
+
+  joblib.dump(mean_imputer, 'mean_imputer_fit.joblib')
+ 
+
+
+
+
+
+
