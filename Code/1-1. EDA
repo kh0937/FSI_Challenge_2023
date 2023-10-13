@@ -1,0 +1,129 @@
+##### Package Loading #####
+
+  import os
+  print(os.getcwd())
+  
+  import pandas as pd
+  import seaborn as sns
+  import numpy as np
+  import matplotlib.pyplot as plt
+
+
+
+##### Data Load #####
+
+  df = pd.read_csv('ntest_vf2.csv')
+
+
+
+##### Data Size #####
+
+  df.shape
+
+  df.head()
+
+  df = pd.DataFrame(data)
+  df.rename(columns = {'BS_YR_Q' : '분기', 'AGE_KCB' : '나이'. 'home_sigun' : '지역', 'SEX' : '성별', 'ele_car_1_sum' : '전기차보유인구수'}, inplace = True)
+
+  df.head()
+
+
+
+##### 전기차 보유 인구수 분포 확인 #####
+
+  plt.figure(figsize = (8,6))
+  sns.histplot(data = df, x = '전기차보유인구수', bins = len(df['전기차보유인구수'].unique()), kde = False)
+  
+  plt.title("Distribution of EV population")
+  plt.xlabel("EV population")
+  plt.ylabel("Frequency")
+  plt.show()
+
+
+
+##### 전기차 보유 인구수 클래스별 비중 #####
+
+  value_counts = df['전기차보유인구수'].value_counts()
+  total_count = len(df)
+  
+  value_weights = value_counts / total_count
+  
+  print(value_weights)
+
+
+
+##### 인구규모에 따른 전기차 보유 인구수 #####
+
+  df3 = df
+  df3['logCNT'] = np.log(df['CNT'] + 1)
+
+  plt.figure(figsize = (8,6))
+  sns.scatterplot(data = df3, x = 'logCNT', y = '전기차보유인구수')
+
+  plt.title("Scatter plot of logCNT and EV population")
+  plt.xlabel("logCNT")
+  plt.ylabel("EV population")
+  plt.show()
+
+
+
+##### 인구규모에 따른 전기차 보유 인구수 #####
+
+  pivot_df = df.pivot_table(index = '분기', columns = '나이', values = '전기차보유인구수', aggfunc = 'sum')
+  pivot_df.plot(kind = 'line', marker = 'o')
+  
+  plt.title("EV population of EV population")
+  plt.xlabel("quarter")
+  plt.ylabel("EV population")
+  plt.show()
+
+
+
+##### 중요 변수들로 이루어진 히트맵 (feat. 이진분류) #####
+
+  df2 = pd.DataFrame(data)
+  
+  selected_columns = [90, 8, 5, 86, 78, 87, 4, 89, 88, 13, 96, 95, 91, 92, 128, 18, 19, 142, 69, 81]
+  selected_df = df.iloc[:, selected_columns]
+
+  plt.fiure(figsize = (20, 18))
+
+  correlation_matrix = selected_df.corr()
+  sns.heatmap(correlation_matrix, annot = True, cmap = 'coolwarm')
+
+  plt.title("Heatmap of Correlation")
+  plt.show()
+
+
+  
+##### 중복가입자 확인 #####
+
+  df2 = pd.DataFrame(data)
+
+  def check_condition(dataframe) :
+      for index, row in dataframe.iterrows() :
+          if row.iloc[5] < row.iloc[6] :
+              return True
+      return False
+
+  result = check_condition(df2)
+
+  if result :
+      print("cnt보다 큰 값이 존재함")
+  else :
+      print("cnt보다 큰 값이 존재하지 않음")
+
+
+
+##### 결측치 확인 #####
+
+  df.isnull().sum()
+
+
+
+
+
+
+
+
+
