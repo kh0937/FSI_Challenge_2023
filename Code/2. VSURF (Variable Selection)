@@ -1,0 +1,217 @@
+##### Load Package #####
+
+  import numpy as np
+  from sklearn.ensemble import RandomForestRegressor
+  from sklearn.ensemble import RandomForestClassifier
+  from sklearn.tree import DecisionTreeRegressor
+  from sklearn.metrics import mean_squared_error
+  import matplotlib.pyplot as plt
+  import time
+  import copy
+  import seaborn as sns
+  import time
+  import pandas as pd
+
+# VSURF 논문 stage 1 구현
+
+  class VSURF:
+
+    def __init__(self, num_var, ytype = 'continuous', n_estimators = 200) :
+        self.ytype = ytype
+        self.mtry = max(int(num_var / 3), 1)
+        self.n_estimators = n_estimators
+
+    def fit(self, X_train, y_train, num_runs = 50) :
+        variable_importance =[]
+  
+        for i in range(num_runs) :
+
+            print(i)
+
+            if self.ytype == 'cont inuous' :
+                regression_model = RandomForestRegressor(n_estimators = self.n_estimators ,
+                                                           max_features = self.mtry,
+                                                           random_state =i, n_jobs= -1)
+                regression_model.fit(X_train, y_train)
+                variable_importance.append(regression_model.feature_importances_)
+
+            elif self.ytype == 'categorical' :
+                classfication_model = RandomForestClassifier(n_estimators = self.n_estimators ,
+                                                              max_features = self.mtry,
+                                                              random_state = i, n_jobs = -1)
+                classfication_model.fit(X_train, y_train)
+                variable_importance.append(classfication_model.feature_importances_)
+
+        vi_mean = np.mean(variable_importance, axis = 0)
+        vi_std = np.std(variable_importance, axis = 0)
+
+        self.vi_mean = copy.deepcopy(vi_mean)
+
+        sorted_indices = np.argsort(vi_std)[::-1]
+
+        sorted_data = sorted(range(len(vi_mean)), key = lambda x : vi_mean[x], reverse = True
+        ranked_data = {index : rank + 1 for rank, index in enumerate(sorted_data)}
+
+        xranks = [ranked_data[index] for index in range(len(vi_mean))]
+        X_ranks = np.array(xranks).reshape(-1, 1)
+
+        max_depths = range(1, 2)
+        cp_values = []
+
+        # pruning
+        for max_depth in max_depths:
+            cart_model = DecisionTreeRegressor (max_depth = max_depth, random_state =42)
+            cart_model.fit(X_ranks, vi_std)
+
+            y_pred = cart_model , predict(X_ranks)
+            sse_p = np.sum((y_pred - vi_std) ** 2)
+
+            mean_std = [np.mean(vi_std)] * len(vi_std)
+
+            mse_full = mean_squared_error(vi_std, mean_std)
+            n = len(vi_std)
+            d_p = cart_model.get_n_leaves()
+            cp = (sse_p / mse_full) - (n-2 * d_p)
+            cp_values.append(cp)
+
+        best_max_depth = max_depths[np.argmin(cp_values)]
+        final_model = DecisionTreeRegressor(max_depth = best_max_depth, random_state = 42)
+        final_model.fit(X_ranks, vi_std)
+
+        self.thershold = np.min(final_model.predict(X_ranks))
+        print ('thershold: ', self. thershold)
+        print("VI_mean: ", vi_mean)
+        print("VI_std:", vi_std)
+
+        self.selected_variables = [idx for idx in sorted_indices if vi_mean[idx] > self.thershold]
+
+
+    def get_selected_variables(self):
+        return self.selected_variables
+
+
+    def plot_variable_importance(self):
+        graph = sns.lineplot(x = range(1, len(self.vi_mean)+1), y = self.vi_mean)
+        graph.axhline(self. thershold, c = 'red')
+        plt.xlabel("Variable Index")
+        plt.ylabel("Vi mean")
+        plt.show()
+
+
+# Load our data
+  df = pd.read_csv('mice_impute_df.csv ')
+
+# 결측 대체 이후이므로 결측값 없음
+  sum(df.isnull().sum())
+
+
+
+##### 회귀 데이터셋과 분류 데이터셋 분리 #####
+
+  reg_df = copy.deepcopy(df)
+  cls_df = copy.deepcopy(df)
+
+
+### 일단은 회귀 모델을 기반으로 VSURF 시도
+
+## 회귀분석에 사용할 변수 생성
+
+# 타겟 변수 식에 맞게 변환
+  reg_df["Target"] = reg_df['ele_car_1_sum'] / (reg_df['car_own_1_sum'] + reg_df['car_own_2_sum']
+
+# 국내 차 보유 인구수와 수입 차 보유 인구수 모두 0인 경우 결측값을 반환하므로 0.0 으로 대체
+  reg_df["Target"] = reg_df["Target"].filna(0.0)
+  print(reg_df["Target"].isnull().sum())
+
+# 타겟 값 생성에 사용된 변수는 데이터 leakage 방지를 위해 제거
+  columns_drop = ['ele_car_1_sum', 'car_own_1_sum', 'car_own_2_sum']
+  reg_df = reg_df.drop(columns = columns_drop)
+
+
+#### Fit VSURF (REG)
+
+  start_time = time.time()
+
+  X, y = reg_df.drop(columns = 'Target'), reg_df['Target ']
+
+  variable_selector = VSURF(num_var = X.shape[1], ytype = 'continuous')
+  variable_selector.fit(X, y)
+
+  print("Selected Variables (Rankes by VI):" , variable_selector.get_selected_variables())
+
+  end_time = time.time()
+  computing_time = (end_time - start_time) / 60
+
+  print("Computing_time: ", computing_time)
+
+
+  variable_selector.get_selected_variables()
+
+  variable_selector.plot_variable_importance()
+
+  print("Original Variable: ", X.shape[1])
+  print("Selected Variable: ", len(variable_selector.get_selected_variables()))
+
+  X.iloc[:, variable_selector.get_selected_variables()]
+
+  reg_selected_var = set(X.iloc[:, variable_selector.get_selected_variables()].columns)
+
+  print(reg_selected_var)
+
+
+
+##### Fit VSURF (CLS) #####
+
+# 분류 눈석에 사용할 변수 생성 (0,1)
+
+# 타겟 변수 식에 맞게 변환
+
+  cls_df["Target"] = (cls_df['ele_car_1_sum'] >= 1).astype('int')
+
+# 타겟 값 생성에 사용된 변수는 데이터 leakage 방지를 위해 제거
+
+  columns_drop $=$ ['ele_car_1_sum', 'car_own_1_sum', 'car_own_2_sum' ]
+  cls_df = cls_df.drop(columns = columns_drop)
+
+
+  start_time = time.time()
+
+  X, y = cls_df.drop(columns = 'Target'), cls_df['Target']
+
+  variable_selector = VSURF(num_var = X.shape[1], ytype = 'categorical')
+  variable_selector.fit(X, y)
+
+  print("Selected Variables (Rankes by VI): ", variable_selector.get_selected_variables())
+
+  end_time = time.time()
+
+  computing_time = (end_time - start_time) / 60
+
+  print("Computing_time: ", computing_time)
+
+
+  variable_selector.get_selected_variables()
+
+  variable_selector.plot_variable_importance()
+
+
+  print("Original Variable: ", X.shape[1])
+  print("Selected Variable: ", len(variable_selector.get_selected_variables())
+
+  cls_selected_var = sex(X.iloc[:, variable_selector.get_selected_variables()].columns)
+
+  print(cls_selected_var)
+
+
+##### Type Markdown and LaTeX: $\alpha^2$ #####
+
+  reg_var = {'skt_47_avg', 'home_sigun_41113', 'home_sigun_41670', 'kcb_41_avg', 'home_sigun_42210', 'home_sigun_43113', 'home_sigun_4128', ...}
+  cls_var = {'skt_3_avg', 'home_sigun_27230', 'home_sigun_26140', 'home_sigun_27290', 'home_sigun_42110', 'home_sigun_11110', 'shc_6_07_si', ...}
+
+# 회귀 모형과 분류 모형에서 나온 선별 변수의 결합(앙상블)
+
+  res_var = cls_var.intersection(reg_var)
+
+
+
+
