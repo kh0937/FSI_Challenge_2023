@@ -82,6 +82,54 @@ X_test = scaler.transform(X_test)
 
 
 
+##### Test Model #####
+
+  def test_model(X_test, cls_y, reg_y, seed_val) : 
+
+      # 랜덤 요소 제어
+      seed_everything(seed_val)
+
+      # 모델 인자 정의
+      input_size = X_test.shape[1]
+      encoding_dim = 32
+      num_classes = 2
+      num_epochs = 50
+      num_train_size = X_test.shape[0]
+
+
+      X_tensor, y_tensor = torch.tensor(X_test, dtype = torch.float32), torch.tensor(cls_y, dtype = torch.float32)
+      reg_y = torch.tensor(reg_y, dtype = torch.float32)
+
+
+      loaded_model = AutoencoderClassifier(input_size, encoding_dim, num_classes)
+      loaded_model.load_state_dict(torch.load('cls_model.pkl'))
+
+      loaded_model.eval()
+
+
+      _, class_outputs1 = cls_model(X_tensor)
+      _, test_pred = class_outputs1.max(1)
+  
+      print('train_auc', roc_auc_score(train_pred, y_tensor.numpy())
+  
+  
+      test_pos_ind = torch.where(test_pred == 1)[0]
+
+      loaded_model2 = RegressionModel(input_size, 128, 32, 8)
+      loaded_model2.load_state_dict(torch.load('reg_model.pkl'))
+
+      loaded_model2.eval()
+
+
+      pre_reg_test = torch.zeros(len(X_tensor), 1)
+      pre_reg_test[test_pos_ind] = loaded_model2(X_tensor[test_pos_ind])
+
+      print("Test_MSE: ", mean_squared_error(pre_reg_test.detach().numpy(), reg_y.numpy()))
+
+      return pre_reg_test
+
+
+test_res = test_model(X_test, y_test_cls, y_test_reg, seed_val = 11)
 
 
 
