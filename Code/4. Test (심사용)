@@ -23,6 +23,18 @@
 
 
 
+##### 저장된 주요 변수 불러오기 #####
+
+  var_set = {'AGE_KCB', 'BS_YR_0', 'CNT', 'SEX', 'car_own_tp_1_sum', 'car_own_tp_7_sum', 'car_own_tp_8_sum', 'car_size_1_sum', 'car_size_2_sum',
+            'car_size_3_sum', 'car_size_4_sum', 'car_size_5_sum', 'home_sigun_11110', 'home_sigun_11140', 'home_sigun_11170', 'home_sigun_11200', 'home_sigun_11215', 'home_sigun_11230', 
+            'home_sigun_11290', 'home_sigun_11305', 'home_sigun_11350', 'home_sigun_11380', 'home_sigun_11440', 'home_sigun_11545', 'home_sigun_11560', 'home_sigun_11620', 'home_sigun_26110', 
+            'home_sigun_26140', 'home_sigun_26170', 'home_sigun_26230', 'home_sigun_26260', 'home_sigun_26290', 'home_sigun_26320', 'home_sigun_26350', 'home_sigun_26380', 'home_sigun_26260',
+            'home_sigun_26440', 'home_sigun_26470', 'home_sigun_26500', 'home_sigun_26710', 'home_sigun_27110', 'home_sigun_27140', 'home_sigun_27170', 'home_sigun_27200', 'home_sigun_27230',
+            'home_sigun_27260', 'home_sigun_27290', 'home_sigun_27710', ...}
+
+
+
+
 
 
 
