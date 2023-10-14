@@ -33,6 +33,45 @@
             'home_sigun_27260', 'home_sigun_27290', 'home_sigun_27710', ...}
 
 
+# 데이터 로드
+
+  test_df = pd.read_csv('your_path')
+
+
+# 선별된 변수 리스트 저장
+
+  res_var = list(var_set)
+
+
+# 타겟 변수 식에 맞게 변환
+
+  test_df['reg_target'] = test_df['ele_car_1_sum'] / (test_df['car_own_1_sum'] + test_df['car_own_2_sum'])
+
+  
+# 국내 차 보유 인구수와 수입 차 보유 인구수 모두 0 인 경우 결측값을 반환하므로 0.0 으로 대체
+
+  test_df['reg_target'] = test_df['reg_target'].fillna(0.0)
+
+
+# 분류 분석에 사용할 변수 생성 (0, 1)
+
+  test_df['cls_target'] = (test_df['ele_car_1_sum'] >= 1).astype('int')
+
+
+# 타겟 값 생성에 사용된 변수는 데이터 leakage 방지를 위해 제거
+
+  columns_drop = ['ele_car_1_sum', 'car_own_1_sum', 'car_own_2_sum']
+
+  test_df = test_dfdf.drop(columns = columns_drop)
+
+
+# X, 분류 타겟 변수, 회귀 타겟 변수 지정
+
+  X_test, y_test_cls, y_test_reg = test_dfdf[sorted(res_var)], test_df['cls_target'].to_numpy(), test_df['reg_target'].to_numpy()
+
+  scale = MinMaxScaler()
+  X = scale.fit_transform(X)
+  X
 
 
 
