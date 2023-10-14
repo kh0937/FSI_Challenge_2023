@@ -33,6 +33,8 @@
             'home_sigun_27260', 'home_sigun_27290', 'home_sigun_27710', ...}
 
 
+##### Setting Test data #####
+
 # 데이터 로드
 
   test_df = pd.read_csv('your_path')
@@ -69,10 +71,14 @@
 
   X_test, y_test_cls, y_test_reg = test_dfdf[sorted(res_var)], test_df['cls_target'].to_numpy(), test_df['reg_target'].to_numpy()
 
-  scale = MinMaxScaler()
-  X = scale.fit_transform(X)
-  X
 
+
+##### MinMaxScaler #####
+
+with open('scaler.pkl', 'rb') as f :
+    scaler = pickle.load(f)
+
+X_test = scaler.transform(X_test)
 
 
 
