@@ -1,0 +1,192 @@
+##### Package Load #####
+
+  from main import *
+  from sklearn.model_selection import GridSearchcy
+  from torch.utils.data import DataLoader, TensorDataset
+  from sklearn.metrics import roc_auc_score
+  from sklearn.metrics import mean_squared_error
+  from sklearn.preprocessing import MinMaxScaler
+  from contral_seed import seed_everything
+  import torch
+  import torch.nn.functional as F
+
+  from torch import пn.optim
+  import matplotlib.pyplot as plt
+
+  from mpl_toolkits.mplot3d import Axes3D     # 생성되는 이미지를 관찰하기 위함. 3차원 플롯
+  from mathplotlib import cm                  # 데이터 포인트에 색상을 입히는 것에 사용됨
+  from torch.utils.data import DataLoader. TensorDataset
+  import joblib
+  import pickle
+
+  np.set_printoptions(suppress=True, precision $=7$ )
+
+
+# 저장된 주요 변수 불러오기
+
+  var_set = {'AGE_KCB', 'BS_YR_0', 'CNT', 'SEX', 'car_own_tp_1_sum', 'car_own_tp_7_sum', 'car_own_tp_8_sum', 'car_size_1_sum', 'car_size_2_sum',
+            'car_size_3_sum', 'car_size_4_sum', 'car_size_5_sum', 'home_sigun_11110', 'home_sigun_11140', 'home_sigun_11170', 'home_sigun_11200', 'home_sigun_11215', 'home_sigun_11230', 
+            'home_sigun_11290', 'home_sigun_11305', 'home_sigun_11350', 'home_sigun_11380', 'home_sigun_11440', 'home_sigun_11545', 'home_sigun_11560', 'home_sigun_11620', 'home_sigun_26110', 
+            'home_sigun_26140', 'home_sigun_26170', 'home_sigun_26230', 'home_sigun_26260', 'home_sigun_26290', 'home_sigun_26320', 'home_sigun_26350', 'home_sigun_26380', 'home_sigun_26260',
+            'home_sigun_26440', 'home_sigun_26470', 'home_sigun_26500', 'home_sigun_26710', 'home_sigun_27110', 'home_sigun_27140', 'home_sigun_27170', 'home_sigun_27200', 'home_sigun_27230',
+            'home_sigun_27260', 'home_sigun_27290', 'home_sigun_27710', ...}
+
+
+# 선택된 변수의 개수
+
+  len(var_set)       # 297개
+
+
+# 데이터 로드
+
+  df = pd.read_csv('mice_impute_df.csv')
+
+
+# 선별된 변수 리스트 저장
+
+ res_var = list(var_set)
+
+
+# 타겟 변수 식에 맞게 변환
+
+  df['reg_target'] = df['ele_car_1_sum'] / (df['car_own_1_sum'] + df ['car_own_2_sum'])
+
+  
+# 국내 차 보유 인구수와 수입 차 보유 인구수 모두 0 인 경우 결측값을 반환하므로 0.0 으로 대체
+
+  df['reg_target'] = df['reg_target'].fillna(0.0)
+
+
+# 분류 분석에 사용할 변수 생성 (0, 1)
+
+ df['cls_target'] = (df['ele_car_1_sum'] >= 1).astype('int')
+
+
+# 타겟 값 생성에 사용된 변수는 데이터 leakage 방지를 위해 제거
+
+ columns_drop = ['ele_car_1_sum', 'car_own_1_sum', 'car_own_2_sum']
+
+ df = df.drop(columns = columns_drop)
+
+
+# X, 분류 타겟 변수, 회귀 타겟 변수 지정
+
+  X, y_cis, y_reg = df[sorted(res_var)], df['cls_target'].to_numpy(), df['reg_target'].to_numpy()
+
+  scale = MinMaxScaler()
+  X = scale.fit_transform(X)
+  X
+
+
+# 학습 모델과 regression ouput 을 반환하는 함수
+
+  def train_model(X, binary_y, reg_y, seed_val) : 
+
+      # 랜덤 요소 제어
+      seed_everything(seed_val)
+
+      # 모델 인자 정의
+      input_size = X.shape[1]
+      encoding_dim = 32
+      num_classes = 2
+      num_epochs = 50
+      num_train_size = X.shape[0]
+
+
+      # array 를 tensor 로 변환
+      X_tensor, y_tensor = torch.tensor(X, dtype = torch.float32), torch.tensor(binary_y, dtype = torch.float32)
+      reg_y = torch.tensor(reg_y, dtype = torch.float32)
+
+      # 배치 학습을 위한 작업
+      train = TensorDataset(torch.tensor(X_tensor, dtype = torch.float32), torch.tensor(y_tensor, dtype = torch.long)
+      trian_loader = DataLoader(train, batch_size = 32, shuffle = True)
+
+
+      # 이진분류 모델 생성
+      cls_model = AutoencoderClassifier(input_size, encoding_dim, num_classes)
+
+      # 손실함수 정의
+      criterion1 = nn.MSELoss()
+      criterion2 = nn.CrossEntropyLoss()
+
+      # 옵티마이저 정의
+      optimizer = torch.optim.Adam(cls_model.parameters(), lr = 0.005)
+
+
+      # 학습 진행 (Autoencoder Classifier)
+      for epoch in range(num_epochs) :
+      
+          for batch_X, batch_y in train_loader :
+          
+              reconstructed, class_output = cls_model(batch_X)
+
+              loss1 = criterion1(reconstructed, batch_X)
+              loss2 = criterion2(class_output, batch_y)
+
+              loss = loss1 + loss2
+
+              optimizer.zero_grad()
+
+              loss.backward()
+
+          print(f"Epoch [{epoch + 1} / {num_epochs}], Loss : {loss.item(): .4f}")
+          
+
+      # 학습된 모델을 기반으로 0, 1 분류 실시 및 1에 해당하는 인덱스 추출
+      cls_model.eval()
+      with torch.no_grad() :
+  
+          _, class_outputs1 = cls_model(X_tensor)
+  
+          _, train_pred = class_outputs1.max(1)
+  
+          print('train_auc', roc_auc_score(train_pred, y_tensor.numpy())
+  
+  
+          # 이진 모델의 pred 기반으로 regression model 로 학습시킬 index 추출
+  
+          train_pos_ind = torch.where(train_pred == 1)[0]
+          train_neg_ind = torch.where(train_pred == 0)[0]
+      
+      torch.save(cls_model.state_dict(), 'cls_model.pkl')
+  
+  
+      # 회귀 모델 정의
+      reg_model = RagressionModel(input_size, 128, 32, 8)
+      reg_model.apply(init_weight)
+      reg_criterion = nn.MSELoss()
+      reg_optimizer = optim.Adam(reg_model.parameters(), lr = 1e-3)
+
+      print('X_train_size: ', len(X_tensor[train_pos_ind]))
+
+
+      for epoch in range(2500) :
+          reg_model.train()
+          reg_optimizer.zero_grad()
+          reg_outputs = reg_model(X_tensor[train_pos_ind])
+          reg_loss = reg_criterion(reg_outputs.squeeze(), reg_y[train_pos_ind])
+          reg_loss.backward()
+
+      reg_model.eval()
+
+
+      # 이전에 0으로 분류된 클래스에는 회귀 예측값 0.0 할당
+      with torch.no_grad() : 
+
+          pre_reg_train = torch.zeros(len(X_tensor), 1)
+          pre_reg_train[train_pos_ind] = reg_model(X_tensor[train_pos_ind])
+
+      print("Train MSE : ", mean_squared_error(pre_reg_train.numpy(), reg_y.numpy()))
+
+      torch.save(reg_model.state_dict(), 'reg_model.pkl')
+
+
+      return pre_reg_train
+
+
+  
+  train_res = train_model(X, y_cls, y_reg, seed_val = 11) 
+  
+  
+  
+
