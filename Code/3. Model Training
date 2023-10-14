@@ -44,12 +44,12 @@
 
 # 선별된 변수 리스트 저장
 
- res_var = list(var_set)
+  res_var = list(var_set)
 
 
 # 타겟 변수 식에 맞게 변환
 
-  df['reg_target'] = df['ele_car_1_sum'] / (df['car_own_1_sum'] + df ['car_own_2_sum'])
+  df['reg_target'] = df['ele_car_1_sum'] / (df['car_own_1_sum'] + df['car_own_2_sum'])
 
   
 # 국내 차 보유 인구수와 수입 차 보유 인구수 모두 0 인 경우 결측값을 반환하므로 0.0 으로 대체
@@ -59,19 +59,19 @@
 
 # 분류 분석에 사용할 변수 생성 (0, 1)
 
- df['cls_target'] = (df['ele_car_1_sum'] >= 1).astype('int')
+  df['cls_target'] = (df['ele_car_1_sum'] >= 1).astype('int')
 
 
 # 타겟 값 생성에 사용된 변수는 데이터 leakage 방지를 위해 제거
 
- columns_drop = ['ele_car_1_sum', 'car_own_1_sum', 'car_own_2_sum']
+  columns_drop = ['ele_car_1_sum', 'car_own_1_sum', 'car_own_2_sum']
 
- df = df.drop(columns = columns_drop)
+  df = df.drop(columns = columns_drop)
 
 
 # X, 분류 타겟 변수, 회귀 타겟 변수 지정
 
-  X, y_cis, y_reg = df[sorted(res_var)], df['cls_target'].to_numpy(), df['reg_target'].to_numpy()
+  X, y_cls, y_reg = df[sorted(res_var)], df['cls_target'].to_numpy(), df['reg_target'].to_numpy()
 
   scale = MinMaxScaler()
   X = scale.fit_transform(X)
